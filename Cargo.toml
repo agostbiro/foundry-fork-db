@@ -36,8 +36,20 @@ futures = "0.3"
 
 parking_lot = "0.12"
 
-revm = { version = "14", features = ["std", "serde"] }
-rustc-hash = "2.0"
+revm = { git = "https://github.com/nomicfoundation/revm", rev = "4722477", features = [
+    "std",
+    "serde",
+] }
+revm-bytecode = { git = "https://github.com/nomicfoundation/revm", rev = "4722477" }
+revm-inspector = { git = "https://github.com/nomicfoundation/revm", rev = "4722477" }
+revm-interpreter = { git = "https://github.com/nomicfoundation/revm", rev = "4722477" }
+revm-primitives = { git = "https://github.com/nomicfoundation/revm", rev = "4722477",  features = [
+    "std",
+    "serde",
+]}
+revm-wiring = { git = "https://github.com/nomicfoundation/revm", rev = "4722477" }
+
+rustc-hash = "1.1"
 
 serde = "1.0"
 serde_json = "1.0"

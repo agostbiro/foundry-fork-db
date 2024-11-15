@@ -3,7 +3,6 @@ use crate::{
     cache::{BlockchainDb, FlushJsonBlockCacheDB, MemDb, StorageInfo},
     error::{DatabaseError, DatabaseResult},
 };
-use alloy_primitives::{keccak256, Address, Bytes, B256, U256};
 use alloy_provider::{network::AnyNetwork, Provider};
 use alloy_rpc_types::{Block, BlockId, Transaction};
 use alloy_serde::WithOtherFields;
@@ -15,11 +14,6 @@ use futures::{
     task::{Context, Poll},
     Future, FutureExt,
 };
-use revm::{
-    db::DatabaseRef,
-    primitives::{AccountInfo, Bytecode, HashMap as Map, KECCAK_EMPTY},
-};
-use rustc_hash::FxHashMap;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
     future::IntoFuture,
@@ -31,6 +25,11 @@ use std::{
         Arc,
     },
 };
+use rustc_hash::FxHashMap;
+use revm::DatabaseRef;
+use revm_primitives::{keccak256, Address, Bytes, HashMap as Map, B256, KECCAK_EMPTY, U256};
+use revm::state::AccountInfo;
+use revm_bytecode::Bytecode;
 
 /// Logged when an error is indicative that the user is trying to fork from a non-archive node.
 pub const NON_ARCHIVE_NODE_WARNING: &str = "\

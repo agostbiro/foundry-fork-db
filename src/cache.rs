@@ -1,10 +1,10 @@
 //! Cache related abstraction
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{B256, U256};
 use parking_lot::RwLock;
 use revm::{
-    primitives::{Account, AccountInfo, AccountStatus, HashMap as Map, KECCAK_EMPTY},
     DatabaseCommit,
 };
+use revm_primitives::{Address, HashMap as Map, KECCAK_EMPTY};
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     collections::{BTreeSet, HashMap},
@@ -13,6 +13,9 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+use revm::state::{Account, AccountInfo, AccountStatus};
+use revm_wiring::block::BlobExcessGasAndPrice;
+use revm_wiring::default::CfgEnv;
 use url::Url;
 
 pub type StorageInfo = Map<U256, U256>;
@@ -117,15 +120,15 @@ impl BlockchainDb {
 /// relevant identifying markers in the context of [BlockchainDb]
 #[derive(Clone, Debug, Eq, Serialize)]
 pub struct BlockchainDbMeta {
-    pub cfg_env: revm::primitives::CfgEnv,
-    pub block_env: revm::primitives::BlockEnv,
+    pub cfg_env: CfgEnv,
+    pub block_env: revm_wiring::default::block::BlockEnv,
     /// all the hosts used to connect to
     pub hosts: BTreeSet<String>,
 }
 
 impl BlockchainDbMeta {
     /// Creates a new instance
-    pub fn new(env: revm::primitives::Env, url: String) -> Self {
+    pub fn new(env: revm::wiring::default::Env<revm_wiring::default::block::BlockEnv, revm_wiring::default::TxEnv>, url: String) -> Self {
         let host = Url::parse(&url)
             .ok()
             .and_then(|url| url.host().map(|host| host.to_string()))
@@ -148,13 +151,13 @@ impl<'de> Deserialize<'de> for BlockchainDbMeta {
     where
         D: Deserializer<'de>,
     {
-        /// A backwards compatible representation of [revm::primitives::CfgEnv]
+        /// A backwards compatible representation of [revm_wiring::default::CfgEnv]
         ///
         /// This prevents deserialization errors of cache files caused by breaking changes to the
-        /// default [revm::primitives::CfgEnv], for example enabling an optional feature.
+        /// default [revm_wiring::default::CfgEnv], for example enabling an optional feature.
         /// By hand rolling deserialize impl we can prevent cache file issues
         struct CfgEnvBackwardsCompat {
-            inner: revm::primitives::CfgEnv,
+            inner: revm_wiring::default::CfgEnv,
         }
 
         impl<'de> Deserialize<'de> for CfgEnvBackwardsCompat {
@@ -167,7 +170,7 @@ impl<'de> Deserialize<'de> for BlockchainDbMeta {
                 // we check for breaking changes here
                 if let Some(obj) = value.as_object_mut() {
                     let default_value =
-                        serde_json::to_value(revm::primitives::CfgEnv::default()).unwrap();
+                        serde_json::to_value(revm_wiring::default::CfgEnv::default()).unwrap();
                     for (key, value) in default_value.as_object().unwrap() {
                         if !obj.contains_key(key) {
                             obj.insert(key.to_string(), value.clone());
@@ -175,19 +178,19 @@ impl<'de> Deserialize<'de> for BlockchainDbMeta {
                     }
                 }
 
-                let cfg_env: revm::primitives::CfgEnv =
+                let cfg_env: revm_wiring::default::CfgEnv =
                     serde_json::from_value(value).map_err(serde::de::Error::custom)?;
                 Ok(Self { inner: cfg_env })
             }
         }
 
-        /// A backwards compatible representation of [revm::primitives::BlockEnv]
+        /// A backwards compatible representation of [revm_wiring::default::block::BlockEnv]
         ///
         /// This prevents deserialization errors of cache files caused by breaking changes to the
-        /// default [revm::primitives::BlockEnv], for example enabling an optional feature.
+        /// default [revm_wiring::default::block::BlockEnv], for example enabling an optional feature.
         /// By hand rolling deserialize impl we can prevent cache file issues
         struct BlockEnvBackwardsCompat {
-            inner: revm::primitives::BlockEnv,
+            inner: revm_wiring::default::block::BlockEnv,
         }
 
         impl<'de> Deserialize<'de> for BlockEnvBackwardsCompat {
@@ -200,7 +203,7 @@ impl<'de> Deserialize<'de> for BlockchainDbMeta {
                 // we check for any missing fields here
                 if let Some(obj) = value.as_object_mut() {
                     let default_value =
-                        serde_json::to_value(revm::primitives::BlockEnv::default()).unwrap();
+                        serde_json::to_value(revm_wiring::default::block::BlockEnv::default()).unwrap();
                     for (key, value) in default_value.as_object().unwrap() {
                         if !obj.contains_key(key) {
                             obj.insert(key.to_string(), value.clone());
@@ -208,7 +211,7 @@ impl<'de> Deserialize<'de> for BlockchainDbMeta {
                     }
                 }
 
-                let cfg_env: revm::primitives::BlockEnv =
+                let cfg_env: revm_wiring::default::block::BlockEnv =
                     serde_json::from_value(value).map_err(serde::de::Error::custom)?;
                 Ok(Self { inner: cfg_env })
             }
